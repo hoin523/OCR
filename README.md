@@ -13,6 +13,65 @@ of git:
 
 Both paths are ignored because this repository is public.
 
+## Drop Files and Run
+
+Create the private workspace:
+
+```bash
+make setup
+```
+
+Put receipt, invoice, or transaction images into:
+
+```text
+data/private/raw/
+```
+
+Then build the file inventory:
+
+```bash
+make inventory
+```
+
+Run a quick OCR smoke test on the first 10 images with PaddleOCR text:
+
+```bash
+make smoke
+```
+
+Run baseline extraction for all uploaded files:
+
+```bash
+make baselines
+```
+
+By default `make baselines` runs `paddleocr-text`, `paddleocr-vl`, and local `qwen3-vl`.
+For Qwen, make sure Ollama has the model available:
+
+```bash
+ollama pull qwen3-vl:8b
+```
+
+Useful variants:
+
+```bash
+EXTRACTORS=paddleocr-text make baselines
+EXTRACTORS=paddleocr-vl make baselines
+EXTRACTORS=qwen3-vl make baselines
+SMOKE_LIMIT=3 make smoke
+make dry-run
+make test
+```
+
+Generated outputs stay local under ignored paths:
+
+- `results/dataset_inventory.json`
+- `results/baselines/<image_id>/paddleocr-text.json`
+- `results/baselines/<image_id>/paddleocr-vl.json`
+- `results/baselines/<image_id>/qwen3-vl.json`
+
+See `docs/data_contract.md` for the private dataset and label format.
+
 ## Smoke Test Commands
 
 Qwen3-VL via Ollama:
