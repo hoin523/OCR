@@ -297,6 +297,8 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
 
     warning_markup = "".join(f"<li>{html.escape(str(warning))}</li>" for warning in warnings)
     warning_section = f'<ul class="warnings">{warning_markup}</ul>' if warning_markup else ""
+    sources_label = html.escape(", ".join(layout.get("sources", [])) or "local parser")
+    extracted_field_count = sum(1 for value in fields.values() if value is not None)
 
     return f"""<!doctype html>
 <html lang="ko">
@@ -308,40 +310,148 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
     :root {{
       color-scheme: light;
       font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      background: #f6f7f9;
-      color: #19202a;
+      background: #eef2f7;
+      color: #18202f;
     }}
     * {{ box-sizing: border-box; }}
-    body {{ margin: 0; min-height: 100vh; }}
-    .app {{
+    body {{
+      margin: 0;
+      min-height: 100vh;
+      background:
+        linear-gradient(180deg, #f8fafc 0%, #eef2f7 44%, #e8edf5 100%);
+    }}
+    .parser-shell {{
       display: grid;
-      grid-template-columns: minmax(320px, 1fr) 380px;
-      gap: 16px;
+      grid-template-columns: minmax(360px, 1fr) 400px;
+      grid-template-rows: auto 1fr;
+      gap: 14px;
       min-height: 100vh;
       padding: 16px;
+    }}
+    .pipeline {{
+      grid-column: 1 / -1;
+      background: #ffffff;
+      border: 1px solid #d8e0ec;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(31, 44, 71, 0.08);
+    }}
+    .pipeline-header {{
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid #e6ebf2;
+    }}
+    .pipeline-title {{
+      display: grid;
+      gap: 2px;
+    }}
+    .pipeline-title h1 {{
+      margin: 0;
+      font-size: 18px;
+      line-height: 1.2;
+      font-weight: 750;
+    }}
+    .pipeline-title span, .pipeline-meta {{
+      color: #607087;
+      font-size: 12px;
+    }}
+    .pipeline-rail {{
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 0;
+      padding: 14px 16px 16px;
+    }}
+    .pipeline-step {{
+      position: relative;
+      display: grid;
+      gap: 8px;
+      min-height: 96px;
+      padding: 14px;
+      border: 1px solid #dbe3ef;
+      border-right: 0;
+      background: #fbfcfe;
+    }}
+    .pipeline-step:first-child {{ border-radius: 8px 0 0 8px; }}
+    .pipeline-step:last-child {{
+      border-right: 1px solid #dbe3ef;
+      border-radius: 0 8px 8px 0;
+    }}
+    .pipeline-step:not(:last-child)::after {{
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -8px;
+      width: 16px;
+      height: 16px;
+      transform: translateY(-50%) rotate(45deg);
+      border-top: 1px solid #dbe3ef;
+      border-right: 1px solid #dbe3ef;
+      background: #fbfcfe;
+      z-index: 2;
+    }}
+    .step-kicker {{
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #607087;
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }}
+    .step-dot {{
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #2f6fed;
+    }}
+    .pipeline-step:nth-child(2) .step-dot {{ background: #00a18a; }}
+    .pipeline-step:nth-child(3) .step-dot {{ background: #b86b00; }}
+    .pipeline-step:nth-child(4) .step-dot {{ background: #cf2f64; }}
+    .step-name {{
+      margin: 0;
+      font-size: 15px;
+      font-weight: 750;
+    }}
+    .step-value {{
+      color: #334155;
+      font-size: 12px;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
     }}
     .document-pane, .parsed-pane {{
       min-width: 0;
       background: #ffffff;
-      border: 1px solid #d9dee7;
+      border: 1px solid #d8e0ec;
       border-radius: 8px;
       overflow: hidden;
+      box-shadow: 0 12px 32px rgba(31, 44, 71, 0.08);
     }}
     .document-header, .parsed-header {{
       display: flex;
       align-items: center;
       justify-content: space-between;
       min-height: 48px;
-      padding: 0 14px;
-      border-bottom: 1px solid #e4e8ef;
+      padding: 0 16px;
+      border-bottom: 1px solid #e6ebf2;
       font-size: 14px;
+      font-weight: 650;
+    }}
+    .document-header span:last-child, .parsed-header span:last-child {{
+      color: #607087;
+      font-size: 12px;
       font-weight: 650;
     }}
     .stage {{
       position: relative;
       width: min(100%, 980px);
-      margin: 0 auto;
-      background: #eef1f5;
+      margin: 16px auto;
+      background: #f1f5f9;
+      border: 1px solid #e1e7f0;
+      border-radius: 8px;
+      overflow: hidden;
     }}
     .stage img {{
       display: block;
@@ -351,8 +461,8 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
     .ocr-box {{
       position: absolute;
       appearance: none;
-      border: 2px solid rgba(39, 87, 255, 0.78);
-      background: rgba(39, 87, 255, 0.12);
+      border: 2px solid rgba(47, 111, 237, 0.78);
+      background: rgba(47, 111, 237, 0.1);
       border-radius: 3px;
       padding: 0;
       cursor: pointer;
@@ -364,8 +474,19 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
     }}
     .parsed-pane {{
       display: grid;
-      grid-template-rows: auto auto 1fr;
-      max-height: calc(100vh - 32px);
+      grid-template-rows: auto auto auto auto minmax(0, 1fr);
+      max-height: calc(100vh - 148px);
+    }}
+    .section-title {{
+      margin: 0;
+      padding: 12px 12px 8px;
+      color: #607087;
+      font-size: 12px;
+      font-weight: 750;
+      text-transform: uppercase;
+    }}
+    .field-section, .timing {{
+      border-bottom: 1px solid #eef2f7;
     }}
     .fields {{
       width: 100%;
@@ -380,18 +501,20 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
     }}
     .fields th {{
       width: 116px;
-      color: #566173;
+      color: #607087;
       font-weight: 650;
     }}
     .timing {{
-      padding: 10px 12px;
+      padding: 0 12px 10px;
       border-bottom: 1px solid #eef1f5;
     }}
     .timing h2 {{
-      margin: 0 0 6px;
+      margin: 0;
+      padding: 12px 0 6px;
       font-size: 12px;
       font-weight: 700;
-      color: #566173;
+      color: #607087;
+      text-transform: uppercase;
     }}
     .timing table {{
       width: 100%;
@@ -415,6 +538,10 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
       overflow: auto;
       padding: 8px;
     }}
+    .block-section {{
+      min-height: 0;
+      overflow: hidden;
+    }}
     .block-row {{
       display: grid;
       grid-template-columns: 1fr auto;
@@ -425,7 +552,7 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
       padding: 9px 10px;
       border: 1px solid #dfe5ee;
       border-radius: 6px;
-      background: #ffffff;
+      background: #fbfcfe;
       color: inherit;
       text-align: left;
       cursor: pointer;
@@ -453,26 +580,69 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
       font-size: 13px;
     }}
     @media (max-width: 860px) {{
-      .app {{ grid-template-columns: 1fr; padding: 10px; }}
+      .parser-shell {{ grid-template-columns: 1fr; padding: 10px; }}
+      .pipeline-rail {{ grid-template-columns: 1fr; }}
+      .pipeline-step, .pipeline-step:first-child, .pipeline-step:last-child {{
+        border: 1px solid #dbe3ef;
+        border-radius: 8px;
+      }}
+      .pipeline-step:not(:last-child)::after {{ display: none; }}
       .parsed-pane {{ max-height: none; }}
     }}
   </style>
 </head>
 <body>
-  <main class="app">
+  <main class="parser-shell">
+    <section class="pipeline">
+      <header class="pipeline-header">
+        <div class="pipeline-title">
+          <h1>Document Parse Pipeline</h1>
+          <span>{title}</span>
+        </div>
+        <div class="pipeline-meta">{sources_label}</div>
+      </header>
+      <div class="pipeline-rail">
+        <article class="pipeline-step">
+          <div class="step-kicker"><span class="step-dot"></span><span>AI Model</span></div>
+          <p class="step-name">Detector</p>
+          <div class="step-value">{len(blocks)} layout regions</div>
+        </article>
+        <article class="pipeline-step">
+          <div class="step-kicker"><span class="step-dot"></span><span>OCR</span></div>
+          <p class="step-name">Recognizer</p>
+          <div class="step-value">{len([block for block in blocks if str(block.get('text', '')).strip()])} text lines</div>
+        </article>
+        <article class="pipeline-step">
+          <div class="step-kicker"><span class="step-dot"></span><span>2D to 1D</span></div>
+          <p class="step-name">Serializer</p>
+          <div class="step-value">{len(str(layout.get('serialized_text', '')).splitlines())} ordered lines</div>
+        </article>
+        <article class="pipeline-step">
+          <div class="step-kicker"><span class="step-dot"></span><span>JSON</span></div>
+          <p class="step-name">Parser</p>
+          <div class="step-value">{extracted_field_count} extracted fields</div>
+        </article>
+      </div>
+    </section>
     <section class="document-pane">
-      <header class="document-header"><span>{title}</span><span>{len(blocks)} blocks</span></header>
+      <header class="document-header"><span>Detected Layout</span><span>{len(blocks)} blocks</span></header>
       <div class="stage">
         <img src="{image_src}" alt="{title}">
         {''.join(box_markup)}
       </div>
     </section>
     <aside class="parsed-pane">
-      <header class="parsed-header"><span>Parsed Fields</span><span>{html.escape(', '.join(layout.get('sources', [])))}</span></header>
+      <header class="parsed-header"><span>Parser Output</span><span>{sources_label}</span></header>
       {warning_section}
-      <table class="fields"><tbody>{''.join(field_markup)}</tbody></table>
+      <section class="field-section">
+        <h2 class="section-title">Key-Value Output</h2>
+        <table class="fields"><tbody>{''.join(field_markup)}</tbody></table>
+      </section>
       {timing_section}
-      <div class="block-list">{''.join(row_markup)}</div>
+      <section class="block-section">
+        <h2 class="section-title">Layout Blocks</h2>
+        <div class="block-list">{''.join(row_markup)}</div>
+      </section>
     </aside>
   </main>
   <script>

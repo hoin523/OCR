@@ -144,6 +144,43 @@ def test_render_viewer_html_links_blocks_and_rows():
     assert "12.35s" in html
 
 
+def test_render_viewer_html_has_parser_dashboard_structure():
+    layout = {
+        "image_id": "receipt_abc",
+        "image_path": "receipt.png",
+        "page": {"width": 640, "height": 480},
+        "blocks": [
+            {
+                "id": "block-001",
+                "type": "text",
+                "text": "Nice Store",
+                "confidence": 0.99,
+                "source": "test",
+                "bbox": {"x": 10, "y": 20, "width": 100, "height": 30},
+            }
+        ],
+        "serialized_text": "Nice Store",
+        "fields": {"merchant": "Nice Store", "total": "10,000"},
+        "sources": ["paddleocr-text"],
+        "processing": {
+            "source_elapsed_seconds": {"paddleocr-text": 12.346},
+            "layout_elapsed_seconds": 0.012,
+        },
+        "warnings": [],
+    }
+
+    html = render_viewer_html(layout)
+
+    assert 'class="parser-shell"' in html
+    assert "Document Parse Pipeline" in html
+    assert "Detector" in html
+    assert "Recognizer" in html
+    assert "Serializer" in html
+    assert "Parser" in html
+    assert "Key-Value Output" in html
+    assert "Layout Blocks" in html
+
+
 def test_read_image_size_supports_lossy_webp(tmp_path: Path):
     webp = tmp_path / "sample.webp"
     vp8_payload = b"\x00\x00\x00\x9d\x01\x2a\x80\x04\x00\x06"
