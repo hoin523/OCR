@@ -97,6 +97,67 @@ For a one-shot local smoke run, use:
 SMOKE_LIMIT=3 make layout-smoke
 ```
 
+To upload a PDF or image from the browser and open the generated parse viewer
+automatically:
+
+```bash
+make upload-app
+```
+
+Then open `http://127.0.0.1:8770`. Uploaded files stay local under
+`data/private/uploads`, and generated viewers are written under
+`results/document_parse_uploads/<job_id>/index.html`.
+Completed uploads are also listed in the local approval-rule registry at
+`data/private/approval_rules/registry.json`, which powers the "적용된 전결규정"
+panel in the upload app.
+
+### Lightweight Parser Test Source
+
+For a minimal upload-to-parse test app without approval-rule screens, run:
+
+```bash
+make parser-test-app
+```
+
+Then open `http://127.0.0.1:8771`. This path keeps the source intentionally
+small:
+
+- `scripts/parser_test_app.py`: parser-test-only browser UI and upload API
+- `scripts/upload_app.py`: shared upload job/pipeline helpers
+- `scripts/preprocess_documents.py`: PDF/image to OCR-ready WebP pages
+- `scripts/run_dataset_pipeline.py`: PaddleOCR text baseline runner
+- `scripts/run_document_parse_layout.py`: clickable layout JSON/viewer writer
+- `scripts/document_parse_layout.py`: layout grouping, fields, overlays, HTML
+
+The lightweight app only exposes `/api/upload`, `/api/jobs/<job_id>`,
+`/api/parse-results/<job_id>`, and `/results/...`. It always stores uploads as
+`parser_test`, so test runs do not enter the approval-rule registry.
+
+### Technology Used
+
+- Python 3.12 and `uv` for local-only scripts and repeatable test runs.
+- PaddleOCR text recognition with Korean language support for open OCR
+  detection/recognition boxes.
+- Pillow image handling and Poppler `pdftoppm` for PDF page rendering.
+- WebP preprocessing for large images and PDF pages before OCR.
+- Heuristic layout grouping that converts OCR line boxes into larger clickable
+  elements, serialized text, and serialized Markdown.
+- Static HTML viewers for single-page, multipage, and upload-driven parser
+  review without an external backend service.
+- Optional baseline slots for PaddleOCR-VL and local Ollama Qwen3-VL outputs
+  when richer VLM extraction is available.
+
+### Tested Locally
+
+- KORIE receipt image smoke parsing with clickable text boxes and grouped layout
+  elements.
+- PDF preprocessing and multipage parse viewer generation.
+- Browser upload flow for image/PDF inputs with local WebP preprocessing.
+- Parser Test JSON comparison panel for checking expected fields against
+  parsed `layout.json` fields.
+- Automated pytest coverage for parser layout, multipage rendering, upload API,
+  parser-test-only app behavior, preprocessing, and dataset inventory helpers.
+
 The MVP uses PaddleOCR text boxes for clickable coordinates. PaddleOCR-VL and
 Qwen3-VL baseline files are recorded as available sources when present.
 For large mobile photos, PaddleOCR text detection defaults to

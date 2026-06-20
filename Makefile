@@ -11,10 +11,12 @@ TEXT_DET_LIMIT_TYPE ?= max
 PREPROCESS_MAX_SIDE ?= 1536
 WEBP_QUALITY ?= 88
 PDF_DPI ?= 200
+UPLOAD_PORT ?= 8770
+PARSER_TEST_PORT ?= 8771
 KORIE_DIR ?= data/private/external/KORIE
 KORIE_SAMPLE_DIR ?= data/private/raw/korie
 
-.PHONY: setup inventory preprocess dry-run smoke baselines layout layout-smoke korie-clone korie-sample test
+.PHONY: setup inventory preprocess dry-run smoke baselines layout layout-smoke upload-app parser-test-app korie-clone korie-sample test
 
 setup:
 	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors none
@@ -40,6 +42,12 @@ layout:
 layout-smoke:
 	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors paddleocr-text --limit $(SMOKE_LIMIT) --text-det-limit-side-len $(TEXT_DET_LIMIT_SIDE_LEN) --text-det-limit-type $(TEXT_DET_LIMIT_TYPE)
 	uv run python scripts/run_document_parse_layout.py --inventory $(INVENTORY) --baselines-dir $(RESULTS_DIR) --output-dir $(DOCUMENT_PARSE_DIR)
+
+upload-app:
+	uv run --with pillow python scripts/upload_app.py --host 127.0.0.1 --port $(UPLOAD_PORT)
+
+parser-test-app:
+	uv run --with pillow python scripts/parser_test_app.py --host 127.0.0.1 --port $(PARSER_TEST_PORT)
 
 korie-clone:
 	mkdir -p data/private/external

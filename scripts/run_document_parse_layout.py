@@ -13,6 +13,7 @@ try:
         build_layout_document,
         normalize_paddleocr_text_payload,
         read_image_size,
+        render_multipage_viewer_html,
         render_viewer_html,
     )
     from scripts.ocr_workspace import build_inventory
@@ -21,6 +22,7 @@ except ModuleNotFoundError:
         build_layout_document,
         normalize_paddleocr_text_payload,
         read_image_size,
+        render_multipage_viewer_html,
         render_viewer_html,
     )
     from ocr_workspace import build_inventory
@@ -122,6 +124,24 @@ def parse_one(
     return layout_path
 
 
+def _layout_for_multipage_index(layout_path: Path, page_number: int) -> dict[str, Any]:
+    layout = read_json(layout_path)
+    image_name = Path(str(layout.get("image_path", ""))).name
+    layout["image_path"] = str(Path(layout_path.parent.name) / image_name)
+    layout["viewer_path"] = str(Path(layout_path.parent.name) / "viewer.html")
+    layout["page_title"] = f"Page {page_number:03d} · {layout.get('image_id', layout_path.parent.name)}"
+    return layout
+
+
+def write_multipage_index(layout_paths: list[Path], output_dir: Path, title: str = "Document Parse") -> Path | None:
+    if not layout_paths:
+        return None
+    pages = [_layout_for_multipage_index(path, index) for index, path in enumerate(layout_paths, start=1)]
+    index_path = output_dir / "index.html"
+    index_path.write_text(render_multipage_viewer_html(pages, title=title), encoding="utf-8")
+    return index_path
+
+
 def parse_inventory(inventory_path: Path, baselines_dir: Path, output_dir: Path) -> list[Path]:
     inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
     outputs = []
@@ -134,6 +154,7 @@ def parse_inventory(inventory_path: Path, baselines_dir: Path, output_dir: Path)
                 output_dir=output_dir,
             )
         )
+    write_multipage_index(outputs, output_dir)
     return outputs
 
 
