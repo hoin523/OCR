@@ -9,6 +9,7 @@ from scripts.document_parse_layout import (
     render_viewer_html,
     serialize_blocks,
 )
+from scripts.run_document_parse_layout import parse_one
 
 
 def test_normalize_paddleocr_text_payload_extracts_line_boxes_in_reading_order():
@@ -102,3 +103,26 @@ def test_render_viewer_html_links_blocks_and_rows():
     assert "selectBlock" in html
     assert "Nice Store" in html
     assert "left: 1.5625%" in html
+
+
+def test_parse_one_writes_layout_and_viewer_from_baseline(tmp_path: Path):
+    image = tmp_path / "receipt.png"
+    image.write_bytes(b"fake")
+    baseline = tmp_path / "baselines" / "receipt_abc" / "paddleocr-text.json"
+    baseline.parent.mkdir(parents=True)
+    baseline.write_text(
+        '{"results":[{"res":{"dt_polys":[[[0,0],[10,0],[10,10],[0,10]]],"rec_texts":["Store"],"rec_scores":[0.9]}}]}',
+        encoding="utf-8",
+    )
+
+    output = tmp_path / "document_parse"
+    layout_path = parse_one(
+        image_id="receipt_abc",
+        image_path=image,
+        baselines_dir=tmp_path / "baselines",
+        output_dir=output,
+    )
+
+    assert layout_path == output / "receipt_abc" / "layout.json"
+    assert layout_path.exists()
+    assert (output / "receipt_abc" / "viewer.html").exists()

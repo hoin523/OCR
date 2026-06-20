@@ -1,11 +1,14 @@
 RAW_DIR ?= data/private/raw
 INVENTORY ?= results/dataset_inventory.json
 RESULTS_DIR ?= results/baselines
+DOCUMENT_PARSE_DIR ?= results/document_parse
 EXTRACTORS ?= paddleocr-text,paddleocr-vl,qwen3-vl
 SMOKE_LIMIT ?= 10
 QWEN_MODEL ?= qwen3-vl:8b
+KORIE_DIR ?= data/private/external/KORIE
+KORIE_SAMPLE_DIR ?= data/private/raw/korie
 
-.PHONY: setup inventory dry-run smoke baselines test
+.PHONY: setup inventory dry-run smoke baselines layout layout-smoke korie-clone korie-sample test
 
 setup:
 	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors none
@@ -21,6 +24,21 @@ smoke:
 
 baselines:
 	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors $(EXTRACTORS) --qwen-model $(QWEN_MODEL)
+
+layout:
+	uv run python scripts/run_document_parse_layout.py --raw-dir $(RAW_DIR) --baselines-dir $(RESULTS_DIR) --output-dir $(DOCUMENT_PARSE_DIR)
+
+layout-smoke:
+	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors paddleocr-text --limit $(SMOKE_LIMIT)
+	uv run python scripts/run_document_parse_layout.py --inventory $(INVENTORY) --baselines-dir $(RESULTS_DIR) --output-dir $(DOCUMENT_PARSE_DIR)
+
+korie-clone:
+	mkdir -p data/private/external
+	test -d $(KORIE_DIR)/.git || git clone https://github.com/MahmoudSalah/KORIE.git $(KORIE_DIR)
+
+korie-sample:
+	mkdir -p $(KORIE_SAMPLE_DIR)
+	find $(KORIE_DIR) -type f \( -iname '*.png' -o -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.webp' \) | head -5 | while read image; do cp "$$image" $(KORIE_SAMPLE_DIR)/; done
 
 test:
 	uv run --with pytest python -m pytest -v

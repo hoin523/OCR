@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+import struct
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -117,6 +118,40 @@ def build_layout_document(
         "sources": sources,
         "warnings": warnings or [],
     }
+
+
+def read_image_size(path: Path) -> dict[str, int | None]:
+    try:
+        with path.open("rb") as handle:
+            header = handle.read(32)
+            if header.startswith(b"\x89PNG\r\n\x1a\n") and len(header) >= 24:
+                width, height = struct.unpack(">II", header[16:24])
+                return {"width": int(width), "height": int(height)}
+
+            if header[:2] == b"\xff\xd8":
+                handle.seek(2)
+                while True:
+                    marker_start = handle.read(1)
+                    if not marker_start:
+                        break
+                    if marker_start != b"\xff":
+                        continue
+                    marker = handle.read(1)
+                    while marker == b"\xff":
+                        marker = handle.read(1)
+                    if marker in {b"\xc0", b"\xc1", b"\xc2", b"\xc3", b"\xc5", b"\xc6", b"\xc7"}:
+                        segment = handle.read(7)
+                        height, width = struct.unpack(">HH", segment[3:7])
+                        return {"width": int(width), "height": int(height)}
+                    length_bytes = handle.read(2)
+                    if len(length_bytes) != 2:
+                        break
+                    length = struct.unpack(">H", length_bytes)[0]
+                    handle.seek(max(length - 2, 0), 1)
+    except OSError:
+        pass
+
+    return {"width": None, "height": None}
 
 
 def _format_percent(value: float, total: float | int | None) -> str:

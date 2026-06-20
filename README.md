@@ -69,8 +69,50 @@ Generated outputs stay local under ignored paths:
 - `results/baselines/<image_id>/paddleocr-text.json`
 - `results/baselines/<image_id>/paddleocr-vl.json`
 - `results/baselines/<image_id>/qwen3-vl.json`
+- `results/document_parse/<image_id>/layout.json`
+- `results/document_parse/<image_id>/viewer.html`
 
 See `docs/data_contract.md` for the private dataset and label format.
+
+## Local Document Parse Layout MVP
+
+Generate an Upstage-style clickable document parse viewer from local baseline
+OCR outputs:
+
+```bash
+make inventory
+make smoke
+make layout
+```
+
+Open the generated viewer from:
+
+```text
+results/document_parse/<image_id>/viewer.html
+```
+
+For a one-shot local smoke run, use:
+
+```bash
+SMOKE_LIMIT=3 make layout-smoke
+```
+
+The MVP uses PaddleOCR text boxes for clickable coordinates. PaddleOCR-VL and
+Qwen3-VL baseline files are recorded as available sources when present.
+
+## KORIE Receipt Samples
+
+Clone the public KORIE receipt dataset into the ignored private workspace and
+copy a few receipt images into the raw drop zone:
+
+```bash
+make korie-clone
+make korie-sample
+RAW_DIR=data/private/raw/korie SMOKE_LIMIT=3 make layout-smoke
+```
+
+All KORIE files and generated outputs remain local under ignored `data/private`
+and `results` paths.
 
 ## Smoke Test Commands
 
