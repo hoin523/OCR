@@ -6,6 +6,7 @@ from scripts.document_parse_layout import (
     build_layout_document,
     normalize_paddleocr_text_payload,
     parse_receipt_fields,
+    render_viewer_html,
     serialize_blocks,
 )
 
@@ -72,3 +73,32 @@ def test_build_layout_document_returns_serializable_shape(tmp_path: Path):
     assert layout["serialized_text"] == "Nice Store\n합계 10,000원"
     assert layout["fields"]["total"] == "10,000원"
     assert layout["blocks"][0]["bbox"]["width"] == 100
+
+
+def test_render_viewer_html_links_blocks_and_rows():
+    layout = {
+        "image_id": "receipt_abc",
+        "image_path": "receipt.png",
+        "page": {"width": 640, "height": 480},
+        "blocks": [
+            {
+                "id": "block-001",
+                "type": "text",
+                "text": "Nice Store",
+                "confidence": 0.99,
+                "source": "test",
+                "bbox": {"x": 10, "y": 20, "width": 100, "height": 30},
+            }
+        ],
+        "serialized_text": "Nice Store",
+        "fields": {"merchant": "Nice Store"},
+        "sources": ["test"],
+        "warnings": [],
+    }
+
+    html = render_viewer_html(layout)
+
+    assert 'data-block-id="block-001"' in html
+    assert "selectBlock" in html
+    assert "Nice Store" in html
+    assert "left: 1.5625%" in html
