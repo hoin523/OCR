@@ -35,6 +35,8 @@ def build_extractor_command(
     image_path: str,
     output_path: Path,
     qwen_model: str = "qwen3-vl:8b",
+    text_det_limit_side_len: int = 1536,
+    text_det_limit_type: str = "max",
 ) -> list[str]:
     if extractor == "paddleocr-text":
         return [
@@ -54,6 +56,10 @@ def build_extractor_command(
             str(output_path),
             "--lang",
             "korean",
+            "--text-det-limit-side-len",
+            str(text_det_limit_side_len),
+            "--text-det-limit-type",
+            text_det_limit_type,
         ]
     if extractor == "qwen3-vl":
         return [
@@ -96,6 +102,8 @@ def build_extraction_plan(
     results_dir: Path,
     skip_existing: bool = True,
     qwen_model: str = "qwen3-vl:8b",
+    text_det_limit_side_len: int = 1536,
+    text_det_limit_type: str = "max",
 ) -> list[dict[str, str | list[str]]]:
     plan: list[dict[str, str | list[str]]] = []
     for item in inventory:
@@ -115,6 +123,8 @@ def build_extraction_plan(
                         image_path=image_path,
                         output_path=output_path,
                         qwen_model=qwen_model,
+                        text_det_limit_side_len=text_det_limit_side_len,
+                        text_det_limit_type=text_det_limit_type,
                     ),
                 }
             )
@@ -138,6 +148,8 @@ def main() -> None:
     parser.add_argument("--extractors", default="none")
     parser.add_argument("--limit", default=0, type=int)
     parser.add_argument("--qwen-model", default="qwen3-vl:8b")
+    parser.add_argument("--text-det-limit-side-len", default=1536, type=int)
+    parser.add_argument("--text-det-limit-type", default="max", choices=["min", "max"])
     parser.add_argument("--no-skip-existing", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -164,6 +176,8 @@ def main() -> None:
         results_dir=args.results_dir,
         skip_existing=not args.no_skip_existing,
         qwen_model=args.qwen_model,
+        text_det_limit_side_len=args.text_det_limit_side_len,
+        text_det_limit_type=args.text_det_limit_type,
     )
 
     if args.dry_run:

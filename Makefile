@@ -5,6 +5,8 @@ DOCUMENT_PARSE_DIR ?= results/document_parse
 EXTRACTORS ?= paddleocr-text,paddleocr-vl,qwen3-vl
 SMOKE_LIMIT ?= 10
 QWEN_MODEL ?= qwen3-vl:8b
+TEXT_DET_LIMIT_SIDE_LEN ?= 1536
+TEXT_DET_LIMIT_TYPE ?= max
 KORIE_DIR ?= data/private/external/KORIE
 KORIE_SAMPLE_DIR ?= data/private/raw/korie
 
@@ -17,19 +19,19 @@ inventory:
 	uv run python scripts/build_dataset_inventory.py --raw-dir $(RAW_DIR) --output $(INVENTORY)
 
 dry-run:
-	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors $(EXTRACTORS) --qwen-model $(QWEN_MODEL) --dry-run
+	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors $(EXTRACTORS) --qwen-model $(QWEN_MODEL) --text-det-limit-side-len $(TEXT_DET_LIMIT_SIDE_LEN) --text-det-limit-type $(TEXT_DET_LIMIT_TYPE) --dry-run
 
 smoke:
-	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors paddleocr-text --limit $(SMOKE_LIMIT)
+	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors paddleocr-text --limit $(SMOKE_LIMIT) --text-det-limit-side-len $(TEXT_DET_LIMIT_SIDE_LEN) --text-det-limit-type $(TEXT_DET_LIMIT_TYPE)
 
 baselines:
-	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors $(EXTRACTORS) --qwen-model $(QWEN_MODEL)
+	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors $(EXTRACTORS) --qwen-model $(QWEN_MODEL) --text-det-limit-side-len $(TEXT_DET_LIMIT_SIDE_LEN) --text-det-limit-type $(TEXT_DET_LIMIT_TYPE)
 
 layout:
 	uv run python scripts/run_document_parse_layout.py --raw-dir $(RAW_DIR) --baselines-dir $(RESULTS_DIR) --output-dir $(DOCUMENT_PARSE_DIR)
 
 layout-smoke:
-	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors paddleocr-text --limit $(SMOKE_LIMIT)
+	uv run python scripts/run_dataset_pipeline.py --raw-dir $(RAW_DIR) --inventory $(INVENTORY) --results-dir $(RESULTS_DIR) --extractors paddleocr-text --limit $(SMOKE_LIMIT) --text-det-limit-side-len $(TEXT_DET_LIMIT_SIDE_LEN) --text-det-limit-type $(TEXT_DET_LIMIT_TYPE)
 	uv run python scripts/run_document_parse_layout.py --inventory $(INVENTORY) --baselines-dir $(RESULTS_DIR) --output-dir $(DOCUMENT_PARSE_DIR)
 
 korie-clone:

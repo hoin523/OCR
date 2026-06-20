@@ -99,6 +99,10 @@ SMOKE_LIMIT=3 make layout-smoke
 
 The MVP uses PaddleOCR text boxes for clickable coordinates. PaddleOCR-VL and
 Qwen3-VL baseline files are recorded as available sources when present.
+For large mobile photos, PaddleOCR text detection defaults to
+`TEXT_DET_LIMIT_SIDE_LEN=1536` and `TEXT_DET_LIMIT_TYPE=max` to keep local CPU
+runs from exhausting memory. Increase the limit when you want denser boxes and
+have enough RAM.
 
 ## KORIE Receipt Samples
 

@@ -71,16 +71,38 @@ TOTAL_LABEL_PATTERN = re.compile(
 MONEY_PATTERN = re.compile(r"[-+]?\d[\d,]*(?:\.\d+)?\s*(?:원|krw|₩)?", re.IGNORECASE)
 
 
+def _money_value(token: str) -> float:
+    normalized = re.sub(r"[^\d.+-]", "", token.replace(",", ""))
+    try:
+        return float(normalized)
+    except ValueError:
+        return 0.0
+
+
+def _positive_money_tokens(lines: list[str]) -> list[str]:
+    tokens: list[str] = []
+    for line in lines:
+        for token in MONEY_PATTERN.findall(line):
+            stripped = token.strip()
+            if stripped.startswith("-"):
+                continue
+            if _money_value(stripped) <= 0:
+                continue
+            tokens.append(stripped)
+    return tokens
+
+
 def parse_receipt_fields(serialized_text: str) -> dict[str, str | None]:
     lines = [line.strip() for line in serialized_text.splitlines() if line.strip()]
     total: str | None = None
     merchant: str | None = None
 
-    for line in lines:
+    for index, line in enumerate(lines):
         if merchant is None and not TOTAL_LABEL_PATTERN.search(line):
             merchant = line
         if TOTAL_LABEL_PATTERN.search(line):
-            money_matches = MONEY_PATTERN.findall(line)
+            nearby_lines = lines[index : index + 7]
+            money_matches = _positive_money_tokens(nearby_lines)
             if money_matches:
                 total = money_matches[-1].strip()
 

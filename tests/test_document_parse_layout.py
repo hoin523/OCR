@@ -53,6 +53,35 @@ def test_parse_receipt_fields_extracts_total_and_merchant():
     assert fields["total"] == "10,000원"
 
 
+def test_parse_receipt_fields_extracts_total_from_nearby_amount_lines():
+    fields = parse_receipt_fields(
+        "<<<영 수증>>>\n"
+        "면세합:\n"
+        "0\n"
+        "합계액:\n"
+        "3,560\n"
+        "카드\n"
+        "3,560"
+    )
+
+    assert fields["merchant"] == "<<<영 수증>>>"
+    assert fields["total"] == "3,560"
+
+
+def test_parse_receipt_fields_ignores_negative_discounts_near_payment_total():
+    fields = parse_receipt_fields(
+        "롯데쇼핑\n"
+        "결제금액\n"
+        "할인 상세내역\n"
+        "-3,980\n"
+        "에누리\n"
+        "현금IC\n"
+        "3,980"
+    )
+
+    assert fields["total"] == "3,980"
+
+
 def test_build_layout_document_returns_serializable_shape(tmp_path: Path):
     image = tmp_path / "receipt.png"
     image.write_bytes(b"fake")
@@ -125,4 +154,7 @@ def test_parse_one_writes_layout_and_viewer_from_baseline(tmp_path: Path):
 
     assert layout_path == output / "receipt_abc" / "layout.json"
     assert layout_path.exists()
-    assert (output / "receipt_abc" / "viewer.html").exists()
+    assert (output / "receipt_abc" / "receipt.png").exists()
+    viewer = (output / "receipt_abc" / "viewer.html")
+    assert viewer.exists()
+    assert 'src="receipt.png"' in viewer.read_text(encoding="utf-8")

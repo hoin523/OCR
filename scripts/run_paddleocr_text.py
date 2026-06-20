@@ -22,6 +22,8 @@ def main() -> None:
     parser.add_argument("--image", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--lang", default="korean")
+    parser.add_argument("--text-det-limit-side-len", default=1536, type=int)
+    parser.add_argument("--text-det-limit-type", default="max", choices=["min", "max"])
     args = parser.parse_args()
 
     started = time.time()
@@ -30,6 +32,8 @@ def main() -> None:
         use_doc_orientation_classify=False,
         use_doc_unwarping=False,
         use_textline_orientation=False,
+        text_det_limit_side_len=args.text_det_limit_side_len,
+        text_det_limit_type=args.text_det_limit_type,
     )
     results = ocr.predict(str(args.image))
     elapsed = time.time() - started
@@ -37,6 +41,8 @@ def main() -> None:
     payload = {
         "model": f"PaddleOCR text ({args.lang})",
         "image": str(args.image),
+        "text_det_limit_side_len": args.text_det_limit_side_len,
+        "text_det_limit_type": args.text_det_limit_type,
         "elapsed_seconds": round(elapsed, 3),
         "results": [result_to_dict(result) for result in results],
     }

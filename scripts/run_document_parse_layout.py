@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -68,16 +69,22 @@ def parse_one(
     output_dir: Path,
 ) -> Path:
     blocks, sources, warnings = load_blocks_from_baselines(image_id, baselines_dir)
+    target_dir = output_dir / image_id
+    target_dir.mkdir(parents=True, exist_ok=True)
+    viewer_image_path = target_dir / image_path.name
+    if image_path.exists() and image_path.resolve() != viewer_image_path.resolve():
+        shutil.copy2(image_path, viewer_image_path)
+
     layout = build_layout_document(
         image_id=image_id,
-        image_path=image_path,
+        image_path=Path(viewer_image_path.name),
         blocks=blocks,
         page_size=read_image_size(image_path),
         sources=sources,
         warnings=warnings,
     )
+    layout["source_image_path"] = str(image_path)
 
-    target_dir = output_dir / image_id
     layout_path = target_dir / "layout.json"
     viewer_path = target_dir / "viewer.html"
     write_json(layout_path, layout)

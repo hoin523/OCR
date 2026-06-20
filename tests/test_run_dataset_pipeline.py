@@ -41,6 +41,10 @@ def test_build_extraction_plan_creates_model_commands(tmp_path: Path):
     assert "scripts/run_paddleocr_text.py" in plan[0]["command"]
     assert "--lang" in plan[0]["command"]
     assert "korean" in plan[0]["command"]
+    assert "--text-det-limit-side-len" in plan[0]["command"]
+    assert "1536" in plan[0]["command"]
+    assert "--text-det-limit-type" in plan[0]["command"]
+    assert "max" in plan[0]["command"]
     assert plan[1]["output_path"].endswith("results/receipt_abc123/paddleocr-vl.json")
     assert "scripts/run_paddleocr_vl.py" in plan[1]["command"]
     assert "paddleocr[doc-parser]>=3.6.0" in plan[1]["command"]
