@@ -104,6 +104,21 @@ For large mobile photos, PaddleOCR text detection defaults to
 runs from exhausting memory. Increase the limit when you want denser boxes and
 have enough RAM.
 
+Large images and PDFs can be preprocessed into OCR-friendly WebP files:
+
+```bash
+RAW_DIR=data/private/raw/korie PREPROCESSED_DIR=data/private/preprocessed/korie make preprocess
+RAW_DIR=data/private/preprocessed/korie SMOKE_LIMIT=3 make layout-smoke
+```
+
+The preprocessor keeps originals intact, resizes only when an image exceeds
+`PREPROCESS_MAX_SIDE`, writes `.webp` outputs, and records
+`preprocess_manifest.json`.
+
+PDF preprocessing renders each page to WebP using Poppler `pdftoppm`. If
+`pdftoppm` is not on your `PATH`, install Poppler locally or run the command
+with a PATH that includes the Poppler binary directory.
+
 ## KORIE Receipt Samples
 
 Clone the public KORIE receipt dataset into the ignored private workspace and

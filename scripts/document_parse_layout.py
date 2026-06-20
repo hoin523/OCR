@@ -126,6 +126,7 @@ def build_layout_document(
     blocks: list[LayoutBlock],
     page_size: dict[str, int | None],
     sources: list[str],
+    processing: dict[str, Any] | None = None,
     warnings: list[str] | None = None,
 ) -> dict[str, Any]:
     ordered_blocks = sort_blocks(blocks)
@@ -138,6 +139,7 @@ def build_layout_document(
         "serialized_text": serialized_text,
         "fields": parse_receipt_fields(serialized_text),
         "sources": sources,
+        "processing": processing or {},
         "warnings": warnings or [],
     }
 
@@ -170,6 +172,31 @@ def read_image_size(path: Path) -> dict[str, int | None]:
                         break
                     length = struct.unpack(">H", length_bytes)[0]
                     handle.seek(max(length - 2, 0), 1)
+
+            if header.startswith(b"RIFF") and header[8:12] == b"WEBP":
+                handle.seek(12)
+                while True:
+                    chunk_header = handle.read(8)
+                    if len(chunk_header) != 8:
+                        break
+                    chunk_type = chunk_header[:4]
+                    chunk_size = struct.unpack("<I", chunk_header[4:])[0]
+                    chunk_data = handle.read(chunk_size)
+                    if chunk_type == b"VP8 " and len(chunk_data) >= 10 and chunk_data[3:6] == b"\x9d\x01\x2a":
+                        width = struct.unpack("<H", chunk_data[6:8])[0] & 0x3FFF
+                        height = struct.unpack("<H", chunk_data[8:10])[0] & 0x3FFF
+                        return {"width": int(width), "height": int(height)}
+                    if chunk_type == b"VP8X" and len(chunk_data) >= 10:
+                        width = 1 + int.from_bytes(chunk_data[4:7], "little")
+                        height = 1 + int.from_bytes(chunk_data[7:10], "little")
+                        return {"width": int(width), "height": int(height)}
+                    if chunk_type == b"VP8L" and len(chunk_data) >= 5 and chunk_data[0] == 0x2F:
+                        bits = int.from_bytes(chunk_data[1:5], "little")
+                        width = 1 + (bits & 0x3FFF)
+                        height = 1 + ((bits >> 14) & 0x3FFF)
+                        return {"width": int(width), "height": int(height)}
+                    if chunk_size % 2 == 1:
+                        handle.seek(1, 1)
     except OSError:
         pass
 
@@ -196,6 +223,7 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
     page_height = page.get("height")
     blocks = layout.get("blocks", [])
     fields = layout.get("fields", {})
+    processing = layout.get("processing", {})
     warnings = layout.get("warnings", [])
     image_src = html.escape(_image_src_for_html(str(layout.get("image_path", ""))), quote=True)
     title = html.escape(str(layout.get("image_id", "document")))
@@ -237,6 +265,34 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
             f"<th>{html.escape(str(key))}</th>"
             f"<td>{html.escape(str(value))}</td>"
             "</tr>"
+        )
+
+    timing_markup = []
+    source_elapsed = processing.get("source_elapsed_seconds", {})
+    if isinstance(source_elapsed, dict):
+        for key, value in source_elapsed.items():
+            if value is None:
+                continue
+            timing_markup.append(
+                "<tr>"
+                f"<th>{html.escape(str(key))}</th>"
+                f"<td>{float(value):.2f}s</td>"
+                "</tr>"
+            )
+    if processing.get("layout_elapsed_seconds") is not None:
+        timing_markup.append(
+            "<tr>"
+            "<th>layout</th>"
+            f"<td>{float(processing['layout_elapsed_seconds']):.2f}s</td>"
+            "</tr>"
+        )
+    timing_section = ""
+    if timing_markup:
+        timing_section = (
+            '<section class="timing">'
+            "<h2>Processing Time</h2>"
+            f"<table><tbody>{''.join(timing_markup)}</tbody></table>"
+            "</section>"
         )
 
     warning_markup = "".join(f"<li>{html.escape(str(warning))}</li>" for warning in warnings)
@@ -327,6 +383,34 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
       color: #566173;
       font-weight: 650;
     }}
+    .timing {{
+      padding: 10px 12px;
+      border-bottom: 1px solid #eef1f5;
+    }}
+    .timing h2 {{
+      margin: 0 0 6px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #566173;
+    }}
+    .timing table {{
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }}
+    .timing th, .timing td {{
+      padding: 4px 0;
+      text-align: left;
+      vertical-align: top;
+    }}
+    .timing th {{
+      color: #697588;
+      font-weight: 600;
+    }}
+    .timing td {{
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }}
     .block-list {{
       overflow: auto;
       padding: 8px;
@@ -387,6 +471,7 @@ def render_viewer_html(layout: dict[str, Any]) -> str:
       <header class="parsed-header"><span>Parsed Fields</span><span>{html.escape(', '.join(layout.get('sources', [])))}</span></header>
       {warning_section}
       <table class="fields"><tbody>{''.join(field_markup)}</tbody></table>
+      {timing_section}
       <div class="block-list">{''.join(row_markup)}</div>
     </aside>
   </main>

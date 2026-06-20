@@ -6,6 +6,7 @@ from scripts.document_parse_layout import (
     build_layout_document,
     normalize_paddleocr_text_payload,
     parse_receipt_fields,
+    read_image_size,
     render_viewer_html,
     serialize_blocks,
 )
@@ -96,6 +97,7 @@ def test_build_layout_document_returns_serializable_shape(tmp_path: Path):
         blocks=blocks,
         page_size={"width": 640, "height": 480},
         sources=["test"],
+        processing={"source_elapsed_seconds": {"test": 1.234}},
     )
 
     assert layout["image_id"] == "receipt_abc"
@@ -103,6 +105,7 @@ def test_build_layout_document_returns_serializable_shape(tmp_path: Path):
     assert layout["serialized_text"] == "Nice Store\n합계 10,000원"
     assert layout["fields"]["total"] == "10,000원"
     assert layout["blocks"][0]["bbox"]["width"] == 100
+    assert layout["processing"]["source_elapsed_seconds"]["test"] == 1.234
 
 
 def test_render_viewer_html_links_blocks_and_rows():
@@ -123,6 +126,11 @@ def test_render_viewer_html_links_blocks_and_rows():
         "serialized_text": "Nice Store",
         "fields": {"merchant": "Nice Store"},
         "sources": ["test"],
+        "processing": {
+            "source_elapsed_seconds": {"paddleocr-text": 12.346},
+            "total_source_elapsed_seconds": 12.346,
+            "layout_elapsed_seconds": 0.012,
+        },
         "warnings": [],
     }
 
@@ -132,6 +140,16 @@ def test_render_viewer_html_links_blocks_and_rows():
     assert "selectBlock" in html
     assert "Nice Store" in html
     assert "left: 1.5625%" in html
+    assert "Processing Time" in html
+    assert "12.35s" in html
+
+
+def test_read_image_size_supports_lossy_webp(tmp_path: Path):
+    webp = tmp_path / "sample.webp"
+    vp8_payload = b"\x00\x00\x00\x9d\x01\x2a\x80\x04\x00\x06"
+    webp.write_bytes(b"RIFF" + (18).to_bytes(4, "little") + b"WEBP" + b"VP8 " + (10).to_bytes(4, "little") + vp8_payload)
+
+    assert read_image_size(webp) == {"width": 1152, "height": 1536}
 
 
 def test_parse_one_writes_layout_and_viewer_from_baseline(tmp_path: Path):
@@ -140,7 +158,7 @@ def test_parse_one_writes_layout_and_viewer_from_baseline(tmp_path: Path):
     baseline = tmp_path / "baselines" / "receipt_abc" / "paddleocr-text.json"
     baseline.parent.mkdir(parents=True)
     baseline.write_text(
-        '{"results":[{"res":{"dt_polys":[[[0,0],[10,0],[10,10],[0,10]]],"rec_texts":["Store"],"rec_scores":[0.9]}}]}',
+        '{"elapsed_seconds":7.891,"results":[{"res":{"dt_polys":[[[0,0],[10,0],[10,10],[0,10]]],"rec_texts":["Store"],"rec_scores":[0.9]}}]}',
         encoding="utf-8",
     )
 
@@ -154,6 +172,7 @@ def test_parse_one_writes_layout_and_viewer_from_baseline(tmp_path: Path):
 
     assert layout_path == output / "receipt_abc" / "layout.json"
     assert layout_path.exists()
+    assert '"paddleocr-text": 7.891' in layout_path.read_text(encoding="utf-8")
     assert (output / "receipt_abc" / "receipt.png").exists()
     viewer = (output / "receipt_abc" / "viewer.html")
     assert viewer.exists()

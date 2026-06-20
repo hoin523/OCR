@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import time
 from pathlib import Path
 from typing import Any
 
@@ -34,32 +35,55 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def load_blocks_from_baselines(image_id: str, baselines_dir: Path) -> tuple[list[Any], list[str], list[str]]:
+def _elapsed_seconds(payload: dict[str, Any]) -> float | None:
+    value = payload.get("elapsed_seconds")
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def load_blocks_from_baselines(
+    image_id: str,
+    baselines_dir: Path,
+) -> tuple[list[Any], list[str], list[str], dict[str, float]]:
     baseline_dir = baselines_dir / image_id
     blocks = []
     sources = []
     warnings = []
+    source_elapsed_seconds = {}
 
     text_path = baseline_dir / "paddleocr-text.json"
     if text_path.exists():
         payload = read_json(text_path)
         blocks.extend(normalize_paddleocr_text_payload(payload))
         sources.append("paddleocr-text")
+        elapsed = _elapsed_seconds(payload)
+        if elapsed is not None:
+            source_elapsed_seconds["paddleocr-text"] = elapsed
     else:
         warnings.append(f"Missing PaddleOCR text baseline: {text_path}")
 
     vl_path = baseline_dir / "paddleocr-vl.json"
     if vl_path.exists():
         sources.append("paddleocr-vl")
+        elapsed = _elapsed_seconds(read_json(vl_path))
+        if elapsed is not None:
+            source_elapsed_seconds["paddleocr-vl"] = elapsed
 
     qwen_path = baseline_dir / "qwen3-vl.json"
     if qwen_path.exists():
         sources.append("qwen3-vl")
+        elapsed = _elapsed_seconds(read_json(qwen_path))
+        if elapsed is not None:
+            source_elapsed_seconds["qwen3-vl"] = elapsed
 
     if not blocks:
         warnings.append("No coordinate blocks were extracted. Run the paddleocr-text baseline for clickable boxes.")
 
-    return blocks, sources, warnings
+    return blocks, sources, warnings, source_elapsed_seconds
 
 
 def parse_one(
@@ -68,7 +92,8 @@ def parse_one(
     baselines_dir: Path,
     output_dir: Path,
 ) -> Path:
-    blocks, sources, warnings = load_blocks_from_baselines(image_id, baselines_dir)
+    started = time.perf_counter()
+    blocks, sources, warnings, source_elapsed_seconds = load_blocks_from_baselines(image_id, baselines_dir)
     target_dir = output_dir / image_id
     target_dir.mkdir(parents=True, exist_ok=True)
     viewer_image_path = target_dir / image_path.name
@@ -81,6 +106,11 @@ def parse_one(
         blocks=blocks,
         page_size=read_image_size(image_path),
         sources=sources,
+        processing={
+            "source_elapsed_seconds": source_elapsed_seconds,
+            "total_source_elapsed_seconds": round(sum(source_elapsed_seconds.values()), 3),
+            "layout_elapsed_seconds": round(time.perf_counter() - started, 3),
+        },
         warnings=warnings,
     )
     layout["source_image_path"] = str(image_path)
