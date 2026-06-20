@@ -1,7 +1,11 @@
+from pathlib import Path
+
 from scripts.document_parse_layout import (
     BoundingBox,
     LayoutBlock,
+    build_layout_document,
     normalize_paddleocr_text_payload,
+    parse_receipt_fields,
     serialize_blocks,
 )
 
@@ -38,3 +42,33 @@ def test_serialize_blocks_joins_non_empty_text_in_reading_order():
     ]
 
     assert serialize_blocks(blocks) == "A\nB"
+
+
+def test_parse_receipt_fields_extracts_total_and_merchant():
+    fields = parse_receipt_fields("Nice Store\n공급가 9000\n합계 10,000원")
+
+    assert fields["merchant"] == "Nice Store"
+    assert fields["total"] == "10,000원"
+
+
+def test_build_layout_document_returns_serializable_shape(tmp_path: Path):
+    image = tmp_path / "receipt.png"
+    image.write_bytes(b"fake")
+    blocks = [
+        LayoutBlock("block-001", "text", "Nice Store", BoundingBox(0, 0, 100, 20), 0.99, "test"),
+        LayoutBlock("block-002", "text", "합계 10,000원", BoundingBox(0, 40, 100, 20), 0.98, "test"),
+    ]
+
+    layout = build_layout_document(
+        image_id="receipt_abc",
+        image_path=image,
+        blocks=blocks,
+        page_size={"width": 640, "height": 480},
+        sources=["test"],
+    )
+
+    assert layout["image_id"] == "receipt_abc"
+    assert layout["page"] == {"width": 640, "height": 480}
+    assert layout["serialized_text"] == "Nice Store\n합계 10,000원"
+    assert layout["fields"]["total"] == "10,000원"
+    assert layout["blocks"][0]["bbox"]["width"] == 100
